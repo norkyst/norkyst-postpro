@@ -1,2 +1,2 @@
 # norkyst-postpro
-Post-processing tools for output files from the NorKyst ocean modelling system
+Post-processing tools for output files from the Norkyst ocean modelling system
