@@ -10,11 +10,11 @@ import numpy as np
 # Contents:
 # 
 # function fwh - returns the freshwater height
-# function ppe - returns the vertically integrated density anomaly
+# function pea - returns the vertically integrated potential energy anomaly
 # function wmd - returns a 2D histogram of the salinity and temperature 
 #                distribution weighted by volume
-# function tad - returns the vertical distribution of the Turner angle 
-# function tad2D - returns a map of the Turner angle in the upper ocean
+# function tad - returns the vertical distribution of the Turner angle in
+#                the form of quantiles interpolated to fixed depths
 
 
 def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
@@ -33,7 +33,9 @@ def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
 
     For example, if S_ref = 35.0, and the freshwater height between z=(-10,0)
     is 5 m, then the total amount of salt is equivalent to having S = 35.0 
-    in the bottom 5 m, and S = 0.0 in the top 5 m. 
+    in the bottom 5 m, and S = 0.0 in the top 5 m. In reduced gravity models, 
+    the potential energy anomaly can be shown to be proportional to the geostrophic 
+    surface current stream-function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
     
     Keep in mind that maps based on the output from this function might appear
     strange if the chosen maximum depth is larger than the minimum depth of
@@ -69,29 +71,19 @@ def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
     return np.sum(S*dz, axis=1)
 
 
-def ppe(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
+def pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
 
     """ 
-    This function returns the profile potential energy, which is defined as
+    This function returns the potential energy anomaly, which is defined as
     the integral from a given depth to the surface, using the integrand
         
         -g*max(rhoref - rho,0)*z/rhoref
                 
     where rhoref is a reference density value, typically chosen as a value
     representative of open ocean conditions where there is little influence
-    from riverine forcing. 
-    
-    To quote Gustafsson (1999, Cont. Shelf Res., 19), "the profile potential 
-    energy is the excess potential energy built up in a stratified water column 
-    as compared to one with uniform density". Strictly speaking, a stratified
-    water column has _lower_ potential energy, but view this integrated parameter
-    as a measure of the amount of stratification. 
-    
-    An interpretation is to look at the value as expressing potential energy 
-    that can be released if the water column is adjacent to a water column with 
-    uniform density = rhoref. The profile potential energy can be shown to be 
-    proportional to the geostrophic transport stream-function, see Gustafsson 
-    (1999) for details.  
+    from riverine forcing. In reduced gravity models, the potential energy 
+    anomaly can be shown to be proportional to the geostrophic transport 
+    stream-function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
     
     The reference density should be such that there is some reference waters 
     in the area of interest. Keep in mind that maps based on the output from 
@@ -99,11 +91,11 @@ def ppe(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
     than the minimum depth of the model, hence it is best to mask the map where 
     the local depth is smaller than the maximum depth.
     
-    2025-04-15, kaihc@met.no
+    2025-04-23, kaihc@met.no
     
     Usage:
     
-        profile_potential_energy = ppe(rho, z_w, rhoref=1027.0, maxdepth=-10.0)
+        potential_energy_anomaly = pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0)
         
     Input variables:
 
@@ -115,7 +107,7 @@ def ppe(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
 
     Output:
 
-        profile_potential_energy    -  [m^3 s^-2] (ndarray [T,Y,X])
+        potential_energy_anomaly    -  [m^3 s^-2] (ndarray [T,Y,X])
     
     """
 
@@ -147,8 +139,8 @@ def wmd(salt, temp, volume, bins_salt=50, bins_temp=50):
     when plotting TS diagrams based on grid points, since the 
     variable upper ocean is disproportionally represented in terms
     of number of grid points. The large volumes are in the deep 
-    ocean! The outputs of this function can be conveniently 
-    plotted using e.g. contour/contourf.  
+    ocean! The outputs of this function can be plotted using 
+    e.g. contour/contourf.  
 
     2025-04-15, kaihc@met.no
 
@@ -200,11 +192,75 @@ def wmd(salt, temp, volume, bins_salt=50, bins_temp=50):
     return X, Y, volume_fraction.T
 
 
-def tad():
+def tad(salt, temp, z_rho, maxdepth=-100.0, resolution=100):
 
-    return True
+    """
+    2025-04-23, kaihc@met.no
+    
+    Usage:
+    
+        turner_angle_distribution, zout = tad(salt, temp, z_rho)
+        
+    Input variables:
 
-def tad2D():
+        salt                        - 4D salinity field from ROMS (ndarray [T,Z,Y,X])
+        temp                        - 4D temperature field from ROMS (ndarray [T,Z,Y,X])
+        z_rho                       - 4D depth values of rho-points (ndarray [T,Z,Y,X])
+        maxdepth                    - maximum depth for return values
+        resolution                  - number of fixed depths
 
-    return True
+    Output:
+
+        turner_angle_distribution  - median and percentiles [5, 25, median, 75, 95] Turner angle values [deg]
+        zout                       - corresponding ndarray with predetermined depth values [m]   
+    """
+
+    import gsw
+    from scipy.interpolate import interp1d
+
+    # Shift zeta to zero everywhere
+    for i in range(z_rho.shape[1]):
+        z_rho[:,i,:,:] -= z_rho[:,-1,:,:]
+
+    # Reshape arrays to [Z, (T * Y * X)]
+    Ncolumns = int(np.size(z_rho)/z_rho.shape[1])
+    Nlevels = z_rho.shape[1]
+
+    z_rho = np.transpose(z_rho, (1,0,2,3)).reshape((Nlevels, Ncolumns))
+    salt = np.transpose(salt, (1,0,2,3)).reshape((Nlevels, Ncolumns))
+    temp = np.transpose(temp, (1,0,2,3)).reshape((Nlevels, Ncolumns))
+
+    # Remove columns on land and reverse layers so that surface comes first
+    not_nan_ind = np.where(~np.isnan(z_rho[0,:]))[0]
+    z_rho = z_rho[::-1, not_nan_ind]
+    salt = salt[::-1, not_nan_ind]
+    temp = temp[::-1, not_nan_ind]
+
+    # Convert salinity and temperature from ROMS to TEOS-10 standards
+    p = gsw.conversions.p_from_z(z_rho, 60.0)
+    SA = gsw.conversions.SA_from_SP(salt, p, 0.0, 60.0)
+    CT = gsw.conversions.CT_from_pt(SA, temp)
+
+    # Get Turner angle
+    Tu, Rs, pmid = gsw.Turner_Rsubrho(SA,CT,p)
+    
+    # Get z coordinates
+    z = gsw.z_from_p(pmid, 60.0)
+
+    # Interpolate to fixed depths
+    zout = np.linspace(maxdepth,-1,resolution)
+    Tu_interp = np.zeros((zout.shape[0], Tu.shape[1]))
+    for i in range(Tu.shape[1]):
+        f = interp1d(z[:,i], Tu[:,i], bounds_error=False, fill_value=np.nan)
+        Tu_interp[:,i] = f(zout)
+
+    # Loop over levels and compute percentiles
+    Tu_out = np.zeros((zout.shape[0],5))
+
+    for i in range(len(zout)):
+        tu_vals = Tu_interp[i,:].ravel()
+        Tu_out[i,:] = np.nanquantile(tu_vals, [0.05,0.25,0.50,0.75,0.95])
+
+
+    return Tu_out, zout
 
