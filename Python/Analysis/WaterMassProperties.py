@@ -42,20 +42,23 @@ def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
     the model, hence it is best to mask the map where the local depth is smaller
     than the maximum depth.
     
-    2025-04-15, kaihc@met.no
-    
     Usage:
     
         fresh_water_height = fwh(salt, z_w, saltref=35.0, maxdepth=-10.0)
         
-    Variables:
+    Inputs:
 
-        fresh_water_height  - 3D freshwater height in [m] (ndarray [T,Y,X])
         salt                - 4D salinity field from ROMS (ndarray [T,Z,Y,X])
         z_w                 - 4D depth values of w-points (ndarray [T,Z,Y,X])
         saltref             - reference salinity value, default = 35.0
         maxdepth            - thickness of layer, default = -10.0
                               time dependent zeta is taken into account
+
+    Output:
+
+        fresh_water_height  - 3D freshwater height in [m] (ndarray [T,Y,X])
+                              
+    2025-04-15, kaihc@met.no
     """
 
     # Truncate z vector, keeping in mind that the surface coordinate is time dependent
@@ -91,8 +94,6 @@ def pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
     than the minimum depth of the model, hence it is best to mask the map where 
     the local depth is smaller than the maximum depth.
     
-    2025-04-23, kaihc@met.no
-    
     Usage:
     
         potential_energy_anomaly = pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0)
@@ -109,6 +110,7 @@ def pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
 
         potential_energy_anomaly    -  [m^3 s^-2] (ndarray [T,Y,X])
     
+    2025-04-23, kaihc@met.no
     """
 
     # Set constants
@@ -142,7 +144,13 @@ def wmd(salt, temp, volume, bins_salt=50, bins_temp=50):
     ocean! The outputs of this function can be plotted using 
     e.g. contour/contourf.  
 
-    2025-04-15, kaihc@met.no
+    Note that the volumetric fraction returned from this function
+    is transposed such that a contour plot can be made as
+    
+    ----
+    [X]: x, y, vol_frac = wmd(...)
+    [X]: contour(x,y,vol_frac)
+    ----
 
     Usage:
 
@@ -160,6 +168,8 @@ def wmd(salt, temp, volume, bins_salt=50, bins_temp=50):
 
         x, y        - meshgrid variables (salt, temp) for plotting
         vol_frac    - volumetric fraction per bin [km^3]
+
+    2025-04-15, kaihc@met.no
     """
 
     # Remove any NaNs
@@ -179,24 +189,56 @@ def wmd(salt, temp, volume, bins_salt=50, bins_temp=50):
     y_centers = (y_edges[:-1] + y_edges[1:]) / 2
     X, Y = np.meshgrid(x_centers, y_centers)
 
-    # Return distribution and coordinates. Note that 
-    # the volumetric fraction is transposed such that 
-    # a contour plot can be made as
-    #
-    # contour(x,y,vol_frac)
-    #
-    # if this function is called as
-    #
-    # x, y, vol_frac = wmd(...)
-    #
+    # Return distribution and coordinates. 
     return X, Y, volume_fraction.T
 
 
 def tad(salt, temp, z_rho, maxdepth=-100.0, resolution=100):
 
     """
-    2025-04-23, kaihc@met.no
-    
+    This function returns the Turner angle distribution for the 
+    salinity and temperature values supplied. The Turner angle
+    is a function of the thermal expansion coefficient and the 
+    haline contraction coefficient in addition to the vertical 
+    gradients of salinity and temperature. It is a more useful 
+    alternative to the density ratio for assessing the relative 
+    influence of salinity and temperature for the stratification.
+
+    Negative values indicate that the water column is salinity
+    stratified, while positive values indicate that it is temperature
+    stratified. For absolute values in the range (45,90) degrees, we may
+    have double diffusive convection, and for absolute values 
+    larger than 90 degrees, the water column is unconditionally 
+    unstable.
+
+    Example code for plotting the output:
+
+    ----
+    plt.subplot(1,1,1)
+
+    plt.axvspan(-120, -90, facecolor=[1.0, 0.9, 0.9])
+    plt.axvspan(-90, -45, facecolor='0.95')
+    plt.axvspan(45, 90, facecolor='0.95')
+    plt.axvspan(90, 120, facecolor=[1.0, 0.9, 0.9])
+
+    plt.fill_betweenx(z, tu[:,0], tu[:,4], color=[0.8, 0.8, 1.0]) 
+    plt.fill_betweenx(z, tu[:,1], tu[:,3], color=[0.5, 0.5, 0.7]) 
+    plt.plot(tu[:,2], z, color=[0.2, 0.2, 0.5], linewidth = 2)
+
+    plt.plot([0,0],[maxdepth, 0],'k-')
+    plt.plot([-45,-45],[maxdepth, 0], color='0.3', linestyle=':')
+    plt.plot([45,45],[maxdepth, 0], color='0.3', linestyle=':')
+    plt.plot([-90,-90],[maxdepth, 0],'r:')
+    plt.plot([90,90],[maxdepth, 0],'r:')
+
+    plt.xlim((-120, 120))
+    plt.ylim((maxdepth, -1))
+    plt.xticks([-90, -45, 0, 45, 90])
+
+    plt.xlabel('Turner angle [degrees]')
+    plt.ylabel('Depth [m]')
+    ----
+
     Usage:
     
         turner_angle_distribution, zout = tad(salt, temp, z_rho)
@@ -213,6 +255,8 @@ def tad(salt, temp, z_rho, maxdepth=-100.0, resolution=100):
 
         turner_angle_distribution  - median and percentiles [5, 25, median, 75, 95] Turner angle values [deg]
         zout                       - corresponding ndarray with predetermined depth values [m]   
+
+    2025-04-23, kaihc@met.no        
     """
 
     import gsw
