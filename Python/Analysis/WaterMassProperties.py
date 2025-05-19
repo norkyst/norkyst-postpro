@@ -21,7 +21,8 @@ def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
 
     """ 
     This function returns the freshwater height, which is defined as
-    the integral from a given depth to the surface, using the integrand
+    the integral from a given depth below the surface to the surface, 
+    using the integrand
         
         max(S_ref - S,0)/S_ref
                 
@@ -35,9 +36,9 @@ def fwh(salt, z_w, saltref=35.0, maxdepth=-10.0):
     is 5 m, then the total amount of salt is equivalent to having S = 35.0 
     in the bottom 5 m, and S = 0.0 in the top 5 m. In reduced gravity models, 
     the potential energy anomaly can be shown to be proportional to the geostrophic 
-    surface current stream-function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
+    surface current stream function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
     
-    Keep in mind that maps based on the output from this function might appear
+    Keep in mind that maps based on the outputs from this function might appear
     strange if the chosen maximum depth is larger than the minimum depth of
     the model, hence it is best to mask the map where the local depth is smaller
     than the maximum depth.
@@ -78,7 +79,8 @@ def pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
 
     """ 
     This function returns the potential energy anomaly, which is defined as
-    the integral from a given depth to the surface, using the integrand
+    the integral from a given depth below the surface to the surface, using 
+    the integrand
         
         -g*max(rhoref - rho,0)*z/rhoref
                 
@@ -86,7 +88,7 @@ def pea(rho, z_w, rhoref=1027.0, maxdepth=-10.0):
     representative of open ocean conditions where there is little influence
     from riverine forcing. In reduced gravity models, the potential energy 
     anomaly can be shown to be proportional to the geostrophic transport 
-    stream-function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
+    stream function, see Gustafsson (Cont. Shelf Res., 19(8), 1999).  
     
     The reference density should be such that there is some reference waters 
     in the area of interest. Keep in mind that maps based on the output from 
@@ -207,9 +209,9 @@ def tad(salt, temp, z_rho, maxdepth=-100.0, resolution=100):
     Negative values indicate that the water column is salinity
     stratified, while positive values indicate that it is temperature
     stratified. For absolute values in the range (45,90) degrees, we may
-    have double diffusive convection, and for absolute values 
-    larger than 90 degrees, the water column is unconditionally 
-    unstable.
+    have double diffusion (salt fingering for [45,90] and diffusive 
+    convection for [-90,-45]), and for absolute values larger than 
+    90 degrees, the water column is unconditionally unstable.
 
     Example code for plotting the output:
 
