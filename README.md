@@ -1,8 +1,10 @@
 # norkyst-postpro
 
-![Norkyst logo](./Logos/vertical_35_91_100.png)
-![MET logo](./Logos/Met_RGB_Horisontal.jpg)
-![HI logo](./Logos/HI_logo.jpg)
+<p align="center">
+  <img src="./Logos/vertical_35_91_100.png" alt="Norkyst logo" width="150">
+  <img src="./Logos/Met_RGB_Horisontal.jpg" alt="MET logo" width="200">
+  <img src="./Logos/HI_logo.jpg" alt="HI logo" width="150">
+</p>
 
 Post-processing tools for output files from the Norkyst ocean modelling system
 
